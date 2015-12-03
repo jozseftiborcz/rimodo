@@ -1,6 +1,4 @@
 ;; Sample model with a three tier application and servers
-(require '[rimodo.model.server :refer :all])
-
 (server app-server 
         :dns-name "app-server"
         :name "appserver01"
