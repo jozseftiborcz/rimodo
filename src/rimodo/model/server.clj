@@ -8,12 +8,18 @@
 (defmacro application
   [app-name & attrs]
   (let [a-name (if (symbol? app-name) app-name (symbol app-name))
+        s-name (str app-name)
         attrs (if (odd? (count attrs)) (cons :descr attrs) attrs)
         args '[& args]
         nsname (ns-name *ns*)]
-    `(do 
+    `(let [model-state# (atom {})] 
 ;;       (in-ns (quote ~'app-ns))
-       (defn ~a-name ~args (hash-map ~@attrs))
+       (defn ~a-name [& args#]
+         (cond
+           (keyword? (first args#)) 
+             (if (> (count args#) 1) (swap! model-state# assoc (first args#) (rest args#)) (@model-state# (first args#)))
+           (seq? (first args#)) (apply ~a-name (first args#))
+           :else (str "application " ~s-name)))
 ;;       (in-ns (quote ~nsname))
             )))
 
