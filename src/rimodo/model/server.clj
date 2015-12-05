@@ -1,16 +1,38 @@
 (ns rimodo.model.server)
 
-(defmacro server 
+
+(defmacro model-element
+  "This function implements the general element defining interface which can be parametrized with extra logic"
+  [model-element-name & clauses]
+  (ns-unmap *ns* (symbol model-element-name))
+  `(defmacro ~model-element-name 
+     [element-name# & attrs#]
+     (let [e-name# (if (symbol? element-name#) element-name# (symbol element-name#))
+           men# ~model-element-name
+           attrs# (if (odd? (count attrs#)) (cons :descr attrs#) attrs#)
+           model-state# (gensym "model-state")]
+       `(let [~'model-state# (atom {})]
+          (defn ~e-name# [~'& ~'args#] 
+            (cond
+              false "haha" 
+              :else (str ~~(str model-element-name) " " ~(str element-name#)))
+          )))))
+
+
+(defmacro serverx 
   [server-name & attrs]
   (let [s-name (if (symbol? server-name) server-name (symbol server-name))]
-    `(def ~s-name (hash-map ~@attrs))))
+    `(defn ~s-name [& args#]
+       (hash-map ~@attrs))))
+
+(model-element server)
 
 (defmacro application
   [app-name & attrs]
   (let [a-name (if (symbol? app-name) app-name (symbol app-name))
         s-name (str app-name)
         attrs (if (odd? (count attrs)) (cons :descr attrs) attrs)
-        args '[& args]
+
         nsname (ns-name *ns*)]
     `(let [model-state# (atom {})] 
 ;;       (in-ns (quote ~'app-ns))

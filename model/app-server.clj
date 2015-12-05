@@ -17,4 +17,18 @@
 (netbank2 (runs-on "coredbsrv01" app-server))
 (netbank3 :runs-on "coredbsrv01" app-server)
 
+; it searches and returns an application
+; (m-search :application "netbank2")
+; this returns every application
+; (m-search :application)
 
+; it yields true if application
+;(application? netbank2)
+; create a linkage between two model element
+; (m-link netbank app-server :apps-tier)
+
+; this returns a seq of tuples (model-element, linkage-kind) of linkages
+; (m-links netbank)
+;
+; the result of the function call is its actual result set
+; (textualize (m-search :application "netbank2))
