@@ -28,13 +28,14 @@
 (defmacro create-model-element
   [model-element-name# & clauses#]
   `(defmacro ~model-element-name# 
-     [element-name# ~'& attrs#]
-     (println "yy" attrs#)
-     (let [men# '~model-element-name#]
-       `(do (println "xx" ~attrs#) (let [~'model-state# (atom (apply hash-map ~attrs#))]
-;              ~'element-sym# (symbol (name ~element-name#))]
+     [element-name# & attrs#]
+     (let [men# '~model-element-name#
+           m-attrs# attrs# ; I dont' know why...
+           element-sym# (symbol (name element-name#))] 
+       (println element-sym#)
+       `(do (let [~'model-state# (atom (apply hash-map '~m-attrs#))]
           (swap! ~'model-state# assoc :model-type '~men#) 
-          (defn ~element-name# [~'& ~'params#]
+          (defn ~element-sym# [~'& ~'params#]
             (eval-while-nil
               (me-attr-setting '~element-name# ~'model-state# ~'params#)
               (me-print-name '~element-name# ~'model-state# ~'params#))))))))
@@ -55,7 +56,7 @@
   (let [model-element-sym (symbol (name model-element-name))]
     (if (resolve model-element-sym) 
       (do 
-        (println "WARN: model element" model-element-sym "will be overwritten!") 
+        (println "WARN: model element type" model-element-sym "will be overwritten!") 
         (ns-unmap *ns* model-element-sym)))
       `(create-model-element ~model-element-sym ~clauses)))
 
