@@ -17,6 +17,12 @@
 (netbank2 (runs-on "coredbsrv01" app-server))
 (netbank3 :runs-on "coredbsrv01" app-server)
 
+(server appsrv1)
+(server appsrv2)
+
+(cluster-group "group1"
+  :cluster-ip "1.1.1.1" appsrv1 appsrv2)
+
 ; it searches and returns an application
 ; (m-search :application "netbank2")
 ; this returns every application

@@ -32,6 +32,11 @@
           'f
           (cons 'rimodo.model.server/eval-while-nil (next conds)))))
 
+(defn meta-attr-filter-fn
+  "It returns a filter fn which returns a filtered seq where meta contains filter-value as key."
+  [filter-value]
+  (fn[x] (meta x)))
+
 (defmacro create-model-element
   "This generates model element with model-element-name. Clauses define additional behaviour to generated model element functionality. The macro is used internally."
   [model-element-name# & clauses#]
@@ -41,11 +46,13 @@
            ; I don't know why it needs new variable (m-attrs) in order to reference in the nested
            ; syntax quoting scope. 
            m-attrs# (if (odd? (count attrs#)) (cons :descr attrs#) attrs#) 
-           element-sym# (symbol (name element-name#))] 
+           element-sym# (with-meta (symbol (name element-name#)) 
+                                   (hash-map :model-element true :model-type (name '~model-element-name#)))]
        `(do (let [~'model-state# (atom (apply hash-map '~m-attrs#))]
           (swap! ~'model-state# assoc :model-type '~men#) 
           (defn ~element-sym# [~'& ~'params#]
             (eval-while-nil
+              ;~~clauses#
               (me-attr-setting '~element-name# ~'model-state# ~'params#)
               (me-print-name '~element-name# ~'model-state# ~'params#))))))))
 
@@ -63,15 +70,20 @@
 (model-element :server)
 (model-element :application)
 
+(defn meph-cluster-member-handler
+  ^{:model-element-param-handler true
+    :doc "returns string representation of model element"
+    :examples ["(me) returns its string rep."]}
+  [element-name model-state args]
+  (str (@model-state :model-type) " " element-name))
+
+(model-element :cluster-group meph-cluster-member-handler)
+
 (defn model-fn 
   [the-model params]
   nil)
 
 (defn runs-on [& args] (cons :runs-on args))
-
-(defmacro server-group 
-  [group-name & servers]
-  nil)
 
 (defn load-model 
   "This function loads a model from a file into namespace model or to the namespace given."
