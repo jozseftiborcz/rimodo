@@ -1,5 +1,9 @@
 (ns rimodo.model.server)
 
+(defmacro with-meta-defn 
+  [fn-name fn-metadata args & body]
+  `(defn ~(with-meta fn-name fn-metadata) ~args ~@body))
+
 (def mef-attr-setting
   ^{:model-element-function true
     :doc "attribute get/set"
@@ -16,8 +20,15 @@
   ^{:model-element-function true
     :doc "returns string representation of model element"
     :examples ["(me) returns its string rep."]}
-  (fn [element-name model-state args]
-  (str (@model-state :model-type) " " (name element-name))))
+  (fn [element-sym model-state args]
+  (str (name (@model-state :model-type)) " " (str (@model-state :name)))))
+
+(with-meta-defn mef-dump-state
+  {:model-element-function true
+   :doc "returns element state"
+   :examples ["(me :dump-state) returns its state."]}
+  [element-sym model-state args]
+  @model-state)
 
 (defmacro functionize [macro] 
   `(fn [ & args#] 
@@ -36,10 +47,18 @@
 
 (defn eval-while-nil
   [params & commands]
+;  (println commands)
   (when commands
     (let [cmd (first commands)
           res (if cmd (apply cmd params))]
       (if res res (apply eval-while-nil params (next commands))))))
+
+(defn apply-all
+  [params & commands]
+;  (println "apply-all" commands)
+  (when commands
+    (doseq [cmd commands]
+      (apply cmd params))))
 
 (defmacro call-seq-with-params-x
   [params & clauses]
@@ -79,14 +98,19 @@
            attrs# (if (odd? (count attrs#)) (cons :descr attrs#) attrs#) 
            [kv-attrs# rest-attrs#] (separate-kv-attrs attrs#)
            element-sym# (with-meta (symbol (name element-name#)) 
-                                   (hash-map :model-element true :model-type (name '~model-element-name#)))]
+                                   (hash-map :model-element true 
+                                             :model-type (name '~model-element-name#)
+                                             :name (name element-name#)))]
        `(do (let [~'model-state# (atom '~kv-attrs#)]
-              (swap! ~'model-state# assoc :model-type '~men#) 
+              (swap! ~'model-state# assoc :model-type (keyword '~men#) :name (name '~element-name#)) 
+              (map #(fn[~'x#] (apply ~'x# (range 5))) ~~@(filter meph-filter-fn clauses#))
               (defn ~element-sym# [~'& ~'params#]
-                (eval-while-nil ['~element-sym# ~'model-state# ~'params#] 
-                                ~~@(filter meph-filter-fn clauses#) 
+                (eval-while-nil [~element-sym# ~'model-state# ~'params#] 
+                                ~~@(filter mef-filter-fn clauses#) 
                                 mef-attr-setting 
-                                mef-print-name)))))))
+                                mef-dump-state
+                                mef-print-name))
+              (apply-all [~element-sym# ~'model-state# '~attrs#] ~~@(filter meph-filter-fn clauses#)))))))
 
 (defmacro model-element
   ^{:doc "This generates model element with model-element-name. Clauses define additional behaviour to generated model element functionality. If the name is used in the namespace it will be overwritten."
@@ -102,30 +126,30 @@
 (model-element :server)
 (model-element :application)
 
-(defmacro with-meta-defn 
-  [fn-name fn-metadata args & body]
-  `(defn ~(with-meta fn-name fn-metadata) ~args ~@body))
+(defn server? 
+  [me]
+  (= ((if (symbol? me) (resolve me) me) :model-type) :server))
 
+(defn find-me
+  "This finds a model element by name or symbol. If model element is given it just returns it"
+  [me]
+  (if (symbol? me) (resolve me) me))
+    
 (with-meta-defn meph-cluster-member-handler
   {:model-element-param-handler true
-    :doc "returns string representation of model element"
-    :examples ["(me) returns its string rep."]}
-  [element-name model-state args]
-  (if (= (first args) :haha) (str "haha")))
+   :doc "returns string representation of model element"
+   :examples ["(me) returns its string rep."]}
+  [element-sym model-state args]
+;  (println "meph-cluster-member-handler" element-sym)
+  (let [[kv-args rest-args] (separate-kv-attrs args)
+        servers (filter server? rest-args)]
+;    (if (first rest-args) (println "x0" (type (first rest-args))))
+;    (println "x1" (type element-sym) servers rest-args)
+    (apply element-sym :cluster-members servers)
+    (doseq [server servers] 
+      ((find-me server) (keyword "cluster-member") element-sym))))
 
-(with-meta-defn meph-cluster-member-handler2
-  {:model-element-param-handler true
-    :doc "returns string representation of model element"
-    :examples ["(me) returns its string rep."]}
-  [element-name model-state args]
-  (if (= (first args) :huhu) (str "huhu")))
-
-(model-element :cluster-group meph-cluster-member-handler meph-cluster-member-handler2)
-
-(println "xxxx" (meta meph-cluster-member-handler))
-(defn model-fn 
-  [the-model params]
-  nil)
+(model-element :cluster-group meph-cluster-member-handler)
 
 (defn runs-on [& args] (cons :runs-on args))
 
