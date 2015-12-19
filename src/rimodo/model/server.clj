@@ -1,5 +1,23 @@
 (ns rimodo.model.server)
 
+;; global state of configuration settings
+(def ^:dynamic *config* (atom {:model-print "simple"}))
+
+(defn config 
+  "Returns or sets global configuration of the system."
+  [& args]
+  (cond 
+    (= (first args) :model-print) (if (second args) 
+                                    (if (= "?" (second args))
+                                      (println "simple|verbose")
+                                      (swap! *config* assoc :model-print (second args))) (@*config* :model-print))
+    :else @*config*))
+
+(defn get-config 
+  "Returns global config value"
+  [param]
+  (config param))
+
 (defmacro with-meta-defn 
   [fn-name fn-metadata args & body]
   `(defn ~(with-meta fn-name fn-metadata) ~args ~@body))
@@ -21,29 +39,19 @@
     :doc "returns string representation of model element"
     :examples ["(me) returns its string rep."]}
   (fn [element-sym model-state args]
-  (str (name (@model-state :model-type)) " " (str (@model-state :name)))))
+    (str (name (@model-state :model-type)) " " (str (@model-state :name)))))
 
 (with-meta-defn mef-dump-state
   {:model-element-function true
    :doc "returns element state"
    :examples ["(me :dump-state) returns its state."]}
   [element-sym model-state args]
-  @model-state)
+  (if (= (first args) :dump-state) @model-state))
 
 (defmacro functionize [macro] 
   `(fn [ & args#] 
   ;   (println "xx" (count args#) args#)
      (eval (cons '~macro args#))))
-
-(defmacro eval-while-nil-x 
-  "This macro generates code which evaluates conds until one returns not nil value."
-  [ & conds]
-  (when (seq conds)
-    (list 'clojure.core/if-let ['f (if (seq? (first conds))
-                                     (cons 'rimodo.model.server/eval-while-nil (first conds))
-                                     (first conds))]
-          'f
-          (cons 'rimodo.model.server/eval-while-nil (next conds)))))
 
 (defn eval-while-nil
   [params & commands]
@@ -76,7 +84,8 @@
 (def mef-filter-fn (meta-attr-filter-fn :model-element-function))
 
 (defn separate-kv-attrs
-  "This function splits inputs into two: a hash-map of key-value pairs and the rest. KV pairs are identified by symbol keys."
+  "This function splits inputs into two: a hash-map of key-value pairs and the rest. 
+  KV pairs are identified by symbol keys."
   ([args]
    (if (and (keyword? (first args)) (next args))
      (separate-kv-attrs (apply hash-map (take 2 args)) (drop 2 args))
@@ -86,8 +95,16 @@
      (recur (assoc kv-args (first args) (second args)) (drop 2 args))
      (list kv-args args))))
 
-(defmacro create-model-element
-  "This generates model element with model-element-name. Clauses define additional behaviour to generated model element functionality. The macro is used internally."
+(defn -model-element-printer 
+  [o writer]
+  (case (get-config :model-print)
+    "simple" (print-simple (o) writer)
+    "verbose" (print-simple (meta o) writer)))
+
+(defmacro -create-model-element
+  "This generates model element with model-element-name. Internal use only, external interface is model-element.
+  Clauses define additional behaviour to generated model element functionality. 
+  The macro is used internally."
   [model-element-name# & clauses#]
 ;  (if (first clauses#) (println "zzzz" (meta (resolve (first clauses#))) (first clauses#)))
   `(defmacro ~model-element-name# 
@@ -103,25 +120,32 @@
                                              :name (name element-name#)))]
        `(do (let [~'model-state# (atom '~kv-attrs#)]
               (swap! ~'model-state# assoc :model-type (keyword '~men#) :name (name '~element-name#)) 
-              (map #(fn[~'x#] (apply ~'x# (range 5))) ~~@(filter meph-filter-fn clauses#))
+;;              (map #(fn[~'x#] (apply ~'x# (range 5))) ~~@(filter meph-filter-fn clauses#))
+              ;; model element as composed function 
               (defn ~element-sym# [~'& ~'params#]
                 (eval-while-nil [~element-sym# ~'model-state# ~'params#] 
                                 ~~@(filter mef-filter-fn clauses#) 
                                 mef-attr-setting 
                                 mef-dump-state
                                 mef-print-name))
-              (apply-all [~element-sym# ~'model-state# '~attrs#] ~~@(filter meph-filter-fn clauses#)))))))
+              (apply-all [~element-sym# ~'model-state# '~attrs#] ~~@(filter meph-filter-fn clauses#))
+              ;; pretty printer for REPL
+              (defmethod print-method (type ~element-sym#) [~'this# ~'writer#]
+                (-model-element-printer #'~(symbol element-name#) ~'writer#)))))))
 
 (defmacro model-element
-  ^{:doc "This generates model element with model-element-name. Clauses define additional behaviour to generated model element functionality. If the name is used in the namespace it will be overwritten."
-    :examples ["(model-element :foo) defines a model element type foo, which can be used to define model element bar as (foo bar)"]}
+  ^{:doc "This generates model element with model-element-name. 
+         Clauses define additional behaviour to generated model element functionality. 
+         If the name is used in the namespace it will be overwritten."
+    :examples ["(model-element :foo) defines a model element type foo, which can be used 
+               to define model element bar as (foo bar)"]}
   [model-element-name & clauses]
   (let [model-element-sym (symbol (name model-element-name))]
     (if (resolve model-element-sym) 
       (do 
         (println "WARN: model element type" model-element-sym "will be overwritten!") 
         (ns-unmap *ns* model-element-sym)))
-      `(create-model-element ~model-element-sym ~@clauses)))
+      `(-create-model-element ~model-element-sym ~@clauses)))
 
 (model-element :server)
 (model-element :application)
