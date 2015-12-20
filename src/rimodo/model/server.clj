@@ -145,7 +145,11 @@
       (do 
         (println "WARN: model element type" model-element-sym "will be overwritten!") 
         (ns-unmap *ns* model-element-sym)))
-      `(-create-model-element ~model-element-sym ~@clauses)))
+    `(do (-create-model-element ~model-element-sym ~@clauses)
+       (defn ~(symbol (str model-element-sym "?"))
+         "It decides if a model element is of this type. Returns false if not a model element."
+         [me#]
+         (and (fn? me#) (= ((me# :dump-state) :model-type) ~model-element-name))))))
 
 (model-element :server)
 (model-element :application)
