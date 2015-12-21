@@ -24,9 +24,11 @@
   :cluster-ip "1.1.1.1" appsrv1 appsrv2)
 
 ; it searches and returns an application
-; (m-search :application "netbank2")
+(if (not= (count (search :application "netbank2")) 1) (println "Error: netbank2 not found"))
+;; regular expression works as well
+(if (not= (count (search :server #"apps.*")) 2) (println "Error: appsrv1,2 not found"))
 ; this returns every application
-; (m-search :application)
+(if (not= (count (search :application)) 3) (println "Error: not every application is found"))
 
 ; it yields true if application
 ;(application? netbank2)
@@ -38,3 +40,7 @@
 ;
 ; the result of the function call is its actual result set
 ; (textualize (m-search :application "netbank2))
+; (donor netbank :what)
+; (donate netbank2 :what)
+; (donor netbank :to netbank2 :what)
+; (inject-fn netbank what)

@@ -1,4 +1,5 @@
-(ns rimodo.model.server)
+(ns rimodo.model.server
+  (:require [rimodo.model.core :as core]))
 
 ;; global state of configuration settings
 (def ^:dynamic *config* (atom {:model-print "simple"}))
@@ -101,22 +102,22 @@
     "simple" (print-simple (o) writer)
     "verbose" (print-simple (meta o) writer)))
 
-(defmacro -create-model-element
-  "This generates model element with model-element-name. Internal use only, external interface is model-element.
+(defmacro -create-model-type
+  "This generates model element with model-type-name. Internal use only, external interface is model-element.
   Clauses define additional behaviour to generated model element functionality. 
   The macro is used internally."
-  [model-element-name# & clauses#]
+  [model-type-name# & clauses#]
 ;  (if (first clauses#) (println "zzzz" (meta (resolve (first clauses#))) (first clauses#)))
-  `(defmacro ~model-element-name# 
+  `(defmacro ~model-type-name# 
      [element-name# & attrs#]
-     (let [men# '~model-element-name#
+     (let [men# '~model-type-name#
            ; I don't know why it needs new variable (m-attrs) in order to reference in the nested
            ; syntax quoting scope. 
            attrs# (if (odd? (count attrs#)) (cons :descr attrs#) attrs#) 
            [kv-attrs# rest-attrs#] (separate-kv-attrs attrs#)
            element-sym# (with-meta (symbol (name element-name#)) 
                                    (hash-map :model-element true 
-                                             :model-type (name '~model-element-name#)
+                                             :model-type #'~model-type-name#
                                              :name (name element-name#)))]
        `(do (let [~'model-state# (atom '~kv-attrs#)]
               (swap! ~'model-state# assoc :model-type (keyword '~men#) :name (name '~element-name#)) 
@@ -131,32 +132,33 @@
               (apply-all [~element-sym# ~'model-state# '~attrs#] ~~@(filter meph-filter-fn clauses#))
               ;; pretty printer for REPL
               (defmethod print-method (type ~element-sym#) [~'this# ~'writer#]
-                (-model-element-printer #'~(symbol element-name#) ~'writer#)))))))
+                (-model-element-printer #'~(symbol element-name#) ~'writer#))
+              ;; add model to global me list
+              (core/register-me #'~element-sym#))))))
 
-(defmacro model-element
+(defmacro model-element-type
   ^{:doc "This generates model element with model-element-name. 
          Clauses define additional behaviour to generated model element functionality. 
          If the name is used in the namespace it will be overwritten."
     :examples ["(model-element :foo) defines a model element type foo, which can be used 
                to define model element bar as (foo bar)"]}
-  [model-element-name & clauses]
-  (let [model-element-sym (symbol (name model-element-name))]
-    (if (resolve model-element-sym) 
+  [model-type-name & clauses]
+  (let [model-type-sym (with-meta (symbol (name model-type-name))
+                         (hash-map :model-type true))]
+    (if (resolve model-type-sym) 
       (do 
-        (println "WARN: model element type" model-element-sym "will be overwritten!") 
-        (ns-unmap *ns* model-element-sym)))
-    `(do (-create-model-element ~model-element-sym ~@clauses)
-       (defn ~(symbol (str model-element-sym "?"))
+        (println "WARN: model element type" model-type-sym "will be overwritten!") 
+        (ns-unmap *ns* model-type-sym)))
+    `(do 
+       (-create-model-type ~model-type-sym ~@clauses)
+       (core/register-mt #'~model-type-sym)
+       (defn ~(symbol (str model-type-sym "?"))
          "It decides if a model element is of this type. Returns false if not a model element."
          [me#]
-         (and (fn? me#) (= ((me# :dump-state) :model-type) ~model-element-name))))))
+         (and (fn? me#) (= ((me# :dump-state) :model-type) ~model-type-name))))))
 
-(model-element :server)
-(model-element :application)
-
-(defn server? 
-  [me]
-  (= ((if (symbol? me) (resolve me) me) :model-type) :server))
+(model-element-type :server)
+(model-element-type :application)
 
 (defn find-me
   "This finds a model element by name or symbol. If model element is given it just returns it"
@@ -177,7 +179,7 @@
     (doseq [server servers] 
       ((find-me server) (keyword "cluster-member") element-sym))))
 
-(model-element :cluster-group meph-cluster-member-handler)
+(model-element-type :cluster-group meph-cluster-member-handler)
 
 (defn runs-on [& args] (cons :runs-on args))
 
@@ -189,7 +191,10 @@
    (let [nsname (ns-name *ns*)
          model (symbol model)]
      (remove-ns model)
+     (core/reset-registers!)
      (in-ns model)
-     (clojure.core/require '[rimodo.model.server :refer :all] :reload)
+     (clojure.core/require '[rimodo.model.server :refer :all] 
+                           '[clojure.core :refer :all] 
+                           '[rimodo.model.model-search :refer :all] :reload)
      (load-file filename)
      (in-ns nsname))))
