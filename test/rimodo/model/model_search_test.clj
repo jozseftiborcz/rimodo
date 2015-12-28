@@ -8,25 +8,39 @@
 
 (defn fixture [f]
   (elemtyp1 foo1)
+  (foo1 :foo 1)
+  (foo1 :bar 1)
   (elemtyp1 foo2)
   (elemtyp2 bar1)
+  (bar1 :foo 1)
+  (bar1 :bar 2)
   (f))
 
 (use-fixtures :once fixture)
 
-(deftest model-element-type-search
-  (testing "first parameter is a keyword and a valid model element type"
-    (is (= 2 (count (search :elemtyp1))))
-    (is (= 1 (count (search :elemtyp2)))))
-  (testing "first parameter is a string and a valid model element type"
-    (is (= 2 (count (search "elemtyp1")))))
-  (testing "second parameter is a model-element as name"
-    (is (= 1 (count (search :elemtyp1 "foo1"))))
-    (is (= 0 (count (search :elemtyp1 "foo3-not-defined")))))
-  (testing "second parameter is a model-element as var"
-    (is (= 1 (count (search :elemtyp2 bar1)))))
-  (testing "second parameter is a model-element as regex"
-    (is (= 2 (count (search :elemtyp1 #"foo?"))))
-    (is (= 1 (count (search :elemtyp1 #".*2"))))))
+(defmacro search-tester
+  [ result-count & conditions]
+  `(is (= ~result-count (count (search ~@conditions)))))
 
+(deftest type-search
+  (search-tester 2 :elemtyp1)
+  (search-tester 1 :elemtyp2))
 
+(deftest name-search
+  (search-tester 2 #".*1")
+  (search-tester 1 "foo2"))
+
+(deftest key-value-search
+  (search-tester 2 {:foo 1})
+  (search-tester 1 {:foo 1 :bar 2}))
+
+(deftest mixed-searches
+  (search-tester 1 :elemtyp1 "foo1")
+  (search-tester 0 :elemtyp1 "foo3-not-defined")
+  (search-tester 1 :elemtyp2 bar1)
+  (search-tester 2 :elemtyp1 #"foo?")
+  (search-tester 1 :elemtyp1 #".*2"))
+
+(deftest set-option
+  (search-tester 3 #{:elemtyp1 :elemtyp2})
+  (search-tester 3 #{:elemtyp1 {:bar 2}}))

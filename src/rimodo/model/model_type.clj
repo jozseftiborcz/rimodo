@@ -11,11 +11,12 @@
     :examples ["(me attr1-kwd attr1-value attr2-kwd attr2-value) sets attr1 and attr2"
                "(me attr1-kwd) returns value of attr1-value or nil"]}
   (fn [element-name model-state args]
-  ;(println (meta (resolve element-name)))
-  (if (keyword? (first args)) 
-         (if (> (count args) 1)
-            (swap! model-state assoc (first args) (rest args)) 
-            (@model-state (first args))))))
+    ;(println (meta (resolve element-name)))
+    (if (keyword? (first args)) 
+      (case (count args)
+        1 (@model-state (first args))
+        2 (swap! model-state assoc (first args)  (second args))
+        (swap! model-state assoc (first args) (rest args))))))
 
 (def mef-print-name
   ^{:model-element-function true

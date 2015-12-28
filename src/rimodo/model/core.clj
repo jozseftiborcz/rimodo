@@ -44,11 +44,16 @@
   []
   (lazy-seq @-model-types-register))
 
+(defn pattern? [x] (= (type x) java.util.regex.Pattern))
+
 (defmacro model-type?
   [f]
+  (println f)
   (cond
     (symbol? f) `(not(nil? (get (meta #'~f) :model-type)))
-    :else `(some #(=((meta %) :name) (symbol (name ~f))) (model-types))))
+    :else `(if (pattern? ~f)
+             false
+             (some #(=((meta %) :name) (symbol (name ~f))) (model-types)))))
 
 (defmacro model-elementx?
   "This returns true if the given var is a model element"
