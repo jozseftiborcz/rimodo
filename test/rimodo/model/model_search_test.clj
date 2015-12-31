@@ -1,7 +1,8 @@
 (ns rimodo.model.model-search-test
   (:require [clojure.test :refer :all]
             [rimodo.model.model-search :refer :all]
-            [rimodo.model.model-type :as mt]))
+            [rimodo.model.model-type :as mt]
+            [rimodo.model.core :as c]))
 
 (mt/model-element-type :elemtyp1)
 (mt/model-element-type :elemtyp2)
@@ -14,7 +15,8 @@
   (elemtyp2 bar1)
   (bar1 :foo 1)
   (bar1 :bar 2)
-  (f))
+  (f)
+  (c/reset-registers!))
 
 (use-fixtures :once fixture)
 
@@ -43,4 +45,6 @@
 
 (deftest set-option
   (search-tester 3 #{:elemtyp1 :elemtyp2})
+  (search-tester 0 #{:elemtyp1} #{:elemtyp2})
+  (search-tester 3 #{:elemtyp1 :elemtyp2} #{:elemtyp1 :elemtyp2})
   (search-tester 3 #{:elemtyp1 {:bar 2}}))

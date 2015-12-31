@@ -1,0 +1,10 @@
+- recursive load-model
+- textualize to output value
+- change and audit log
+- invariant handler/invariant log
+- model element repl
+- model element attr calculation
+- database interface
+- genesis (source file, database)
+- add ! to functions with side-effect
+- model element tostring to contain unique id

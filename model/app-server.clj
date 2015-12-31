@@ -30,6 +30,13 @@
 ; this returns every application
 (if (not= (count (search :application)) 3) (println "Error: not every application is found"))
 
+; this creates a file app-server_name.te with the following content
+; (textualize "name" (m-search :application #"2")
+;   {:source "app-server.clj" :line 36}
+;   :result
+;   (application/netbank2))
+(textualize "name" (search :application ))
+
 ; it yields true if application
 ;(application? netbank2)
 ; create a linkage between two model element

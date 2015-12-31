@@ -5,6 +5,7 @@ pom.xml
 pom.xml.asc
 .*.swp
 .*.swo
+*.te
 *.jar
 *.class
 /.lein-*

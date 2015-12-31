@@ -1,4 +1,6 @@
-(ns rimodo.model.core)
+(ns rimodo.model.core
+  (:require [clojure.pprint :as pp]
+            [clojure.string :as s]))
 
 ;; global state of configuration settings
 (def ^:dynamic *config* (atom {:model-print "simple"}))
@@ -48,17 +50,11 @@
 
 (defmacro model-type?
   [f]
-  (println f)
   (cond
     (symbol? f) `(not(nil? (get (meta #'~f) :model-type)))
     :else `(if (pattern? ~f)
              false
              (some #(=((meta %) :name) (symbol (name ~f))) (model-types)))))
-
-(defmacro model-elementx?
-  "This returns true if the given var is a model element"
-  [f]
-  (if `~(resolve (symbol f)) `(get (meta #'~f) :model-element) false))
 
 (defn model-element?
   "This returns true if the given var is a model element"
@@ -69,6 +65,37 @@
   "This finds a model element by name or symbol. If model element is given it just returns it"
   [me]
   (if (symbol? me) (resolve me) me))
+
+(defmulti textualize-result class)
+
+(defmethod textualize-result clojure.lang.LazySeq
+  [s]
+  (with-out-str 
+    (binding [*out* (pp/get-pretty-writer *out*)] 
+      (pp/with-pprint-dispatch pp/code-dispatch 
+        (pp/pprint-logical-block :prefix "  (" :suffix ")"
+;          (pp/pprint-indent :block 2) 
+          ((pp/formatter-out "~{~s~^~:@_~}") s)) 
+          (.ppflush *out*)))))
+
+(defmethod textualize-result nil
+  [result]
+  (with-out-str (pp/pprint result)))
+
+(defmacro textualize
+  "This function output the result of the first parameter into a str with the original definition"
+  [tname f & result]
+  (let [result2 (eval f)
+        filename (s/replace *file* #".clj$" (str "_" tname ".te"))]
+    (with-open [w (clojure.java.io/writer filename)]
+      (.write w (str "(textualize \"" tname "\" " f "\n"))
+      (.write w (str "  " (meta &form) "\n"))
+      (.write w (str "  :result\n"))
+      (.write w (textualize-result result2))
+      (.write w ")"))))
+
+(defn generate-textualize!
+  [])
 
 (defn load-model 
   "This function loads a model from a file into namespace model or to the namespace given."
@@ -81,8 +108,10 @@
      (reset-registers!)
      (in-ns model)
      (clojure.core/require '[rimodo.model.server :refer :all] 
+                           '[rimodo.model.core :refer :all]
                            '[clojure.core :refer :all] 
                            '[rimodo.model.model-search :refer :all] :reload)
      (load-file filename)
+     (generate-textualize!)
      (in-ns nsname))))
 

@@ -26,19 +26,6 @@
     result-seq
       (recur (filter (search-filter (first conds)) result-seq) (rest conds))))
 
-;          extract-type-fn (fn[x] (x :model-type))
-;      (if (core/model-type? (first conds))
-;        (if-let [me (second conds)]
-;          (filter #(and (match-type-fn %)
-;                        (cond 
-;                          (re-pattern? me) (re-find me (% :name))
-;                          (core/model-element? me) (= me %)
-;                          (string? me) (= (% :name) me))) 
-;                        (core/model-elements))
-;          (filter #(match-type-fn %)
-;                  (core/model-elements)))))))
-;          match-type-fn (fn[x] (= (symbol (name (extract-type-fn x))) 
-;                                  (symbol (name (first conds)))))]
 
 (defn search
   "It filters model elements by conditions as provided. 
@@ -49,4 +36,5 @@
   * hash-map filters model elements with attributes/values as specified by key/value pairs.
   * array/set is treated as a grouped filter where one of the group member should match model element."
   [ & conds]
-  (do-search (lazy-seq (core/model-elements)) conds))
+  (with-meta (do-search (lazy-seq (core/model-elements)) conds)
+             {:model-search-result true :conds conds}))
