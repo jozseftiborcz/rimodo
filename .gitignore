@@ -5,8 +5,8 @@ pom.xml
 pom.xml.asc
 .*.swp
 .*.swo
-*.te
 *.jar
+*.te
 *.class
 /.lein-*
 /.nrepl-port

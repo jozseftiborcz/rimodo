@@ -23,14 +23,15 @@
 ;; global list of model elements
 (def -model-elements-register (atom []))
 (def -model-types-register (atom []))
-
-(defn register-me!
-  [me]
-;  (println "register-me" me)
+dseq-creator msg register-me
+seq-creator)) ~
   (swap! -model-elements-register conj me)
   me)
 
-(defn register-mt
+(defn register-ject-behaviour :elemtyp1 (fn[& args]mnil))
+ "this should be still zero as not global"
+))
+ "behaviour attached to here"
   [mt]
   (swap! -model-types-register conj mt))
 
@@ -47,6 +48,7 @@
   []
   (lazy-seq @-model-types-register))
 
+; this holds reference to model elements which expose invariant violations
 (def invariant-violations (atom {}))
 
 (defn set-violations!
@@ -65,19 +67,18 @@
 
 (defn pattern? [x] (= (type x) java.util.regex.Pattern))
 
-(defn model-type?
+(defmacro model-type?
   [f]
   (cond
-    (var? f) (get (meta f) :model-type)
-    (fn? f) false
-    (pattern? f) false
-    (or (string? f) (keyword? f)) (first (filter #(=((meta %) :name) (symbol (name f))) (model-types)))
-    :else false))
+    (symbol? f) `(not(nil? (get (meta #'~f) :model-type)))
+    :else `(if (pattern? ~f)
+             false
+             (some #(=((meta %) :name) (symbol (name ~f))) (model-types)))))
 
 (defn model-element?
   "This returns true if the given var is a model element"
-  [f] 
-  (and (fn? f) (some #(= % f) (model-elements))))
+  [f]
+  (and (fn? f) (try (not(nil? (f :model-type))) (catch clojure.lang.ArityException e))))
 
 (defn find-me
   "This finds a model element by name or symbol. If model element is given it just returns it"
@@ -110,7 +111,7 @@
       (.write w (str "  " (meta &form) "\n"))
       (.write w (str "  :result\n"))
       (.write w (textualize-result result2))
-      (.write w ")"))))
+      (.write w ")\n"))))
 
 (defn generate-textualize!
   [])

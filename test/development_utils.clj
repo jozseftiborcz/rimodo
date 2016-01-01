@@ -4,4 +4,4 @@
 (defn run-tests
   "Run tests"
   []
-  (t/run-tests (find-ns 'rimodo.core-test)))
+  (t/run-tests (find-ns 'rimodo.model.core-test)))

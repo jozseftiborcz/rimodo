@@ -22,8 +22,17 @@
 
 (deftest model-element?-testing
   (testing "arbitrary input returns false"
-    (is (not (model-element? (fn[& args] ))))
-    (is (not (model-element? "foo")))
-    (is (not (model-element? :foo)))
-    (is (model-element? foo2))))
+    (is (not (model-element? (fn[& args] ))) "this is not an me")
+    (is (not (model-element? "foo")) "this isn't too")
+    (is (not (model-element? :foo)) "by keyword it cannot find"))
+  (testing "valid results"
+    (is (model-element? foo2)) "this is it"))
+
+(deftest model-type?-testing
+  (is (not (model-type? "not-model-type")) "this is not")
+  (is (not (model-type? foo2)) "this is not")
+  (is (model-type? :elemtyp2) "works with keyword")
+  (is (model-type? #'elemtyp2) "works with var")
+  (is (model-type? "elemtyp1") "works with string too"))
+
 

@@ -1,5 +1,5 @@
 - recursive load-model
-- textualize to output value
++ textualize to output value
 - change and audit log
 - invariant handler/invariant log
 - model element repl
@@ -8,3 +8,5 @@
 - genesis (source file, database)
 - add ! to functions with side-effect
 - model element tostring to contain unique id
+- create model type namespace under model and create alias there for each
+  model element

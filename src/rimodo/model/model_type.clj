@@ -50,7 +50,7 @@
 ;  (println "apply-all" commands)
   (when commands
     (doseq [cmd commands]
-      (apply cmd params))))
+      (if cmd (apply cmd params)))))
 
 (defmacro call-seq-with-params-x
   [params & clauses]
@@ -85,6 +85,27 @@
     "simple" (print-simple (o) writer)
     "verbose" (print-simple (meta o) writer)))
 
+; this variable holds global injected behaviours
+(def injected-behaviour-store (atom {:global []}))
+
+(defn reset-mt!
+  []
+  (reset! injected-behaviour-store {:global []}))
+
+(defn inject-behaviour 
+  "It injects behaviour to model element type. Inject dest can be :global model element type keyword or model element."
+  [inject-dest behaviour-fn] 
+  (if-not (@injected-behaviour-store inject-dest) (swap! injected-behaviour-store assoc inject-dest []))
+  (swap! injected-behaviour-store 
+         assoc-in 
+         [inject-dest] 
+         (cons behaviour-fn (get-in @injected-behaviour-store [inject-dest]))))
+
+(defn injected-behaviours
+  "This returns a list of behaviours injected to inject-dest"
+  [inject-dest]
+  (get-in @injected-behaviour-store [inject-dest]))
+
 (defmacro -create-model-type
   "This generates model element with model-type-name. Internal use only, external interface is model-element.
   Clauses define additional behaviour to generated model element functionality. 
@@ -110,15 +131,20 @@
                 (eval-while-nil [~element-sym# ~'model-state# ~'params#] 
                                 ~~@(filter mef-filter-fn clauses#) 
                                 mef-attr-setting 
+                                (injected-behaviours ~element-sym#) 
                                 mef-dump-state
                                 mef-print-name))
+              ; add model to global me list
+              ; here instead of adding var the model element is added. In the future it may be necessary to 
+              ; provide facility to query source structre: eg. where a certain model element is used.
+              (core/register-me! ~element-sym#)
+              ; create model element under model element type namespace
+              (intern (in-ns (symbol (str "model." '~men#))) '~element-sym# ~element-sym#)
+              (apply apply-all [~element-sym# ~'model-state# '~attrs#] (injected-behaviours '~men#))
               (apply-all [~element-sym# ~'model-state# '~attrs#] ~~@(filter meph-filter-fn clauses#))
               ;; pretty printer for REPL
               (defmethod print-method (type ~element-sym#) [~'this# ~'writer#]
-                (-model-element-printer #'~(symbol element-name#) ~'writer#))
-              ;; add model to global me list
-              ;; here instead of adding var the model element is added. In the future it may be necessary to provide facility to query source structre: eg. where a certain model element is used.
-              (core/register-me ~element-sym#))))))
+                (-model-element-printer #'~(symbol element-name#) ~'writer#)))))))
 
 (defmacro model-element-type
   ^{:doc "This generates model element with model-element-name. 
