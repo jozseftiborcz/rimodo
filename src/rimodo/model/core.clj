@@ -34,11 +34,6 @@
   [mt]
   (swap! -model-types-register conj mt))
 
-(defn reset-registers!
-  []
-  (reset! -model-elements-register [])
-  (reset! -model-types-register []))
-
 (defn model-elements
   []
   (lazy-seq @-model-elements-register))
@@ -50,13 +45,13 @@
 (def invariant-violations (atom {}))
 
 (defn set-violations!
-  "This sets invariant violations of a model element by invariant source to violation-infos. 
+  "This sets invariant violations of a model element by invariant type to violation-infos. 
   violation-info is a string representation of the violation found.
   It is assumed that violation-infos are a full list. So empty list means violations resovled."
-  [invariant-source invariant-object & violation-infos] 
+  [invariant-type violating-object & violation-infos] 
   (if (empty? violation-infos) 
-    (swap! invariant-violations dissoc (list invariant-source invariant-object))
-    (swap! invariant-violations assoc (list invariant-source invariant-object) violation-infos)))
+    (swap! invariant-violations dissoc (list invariant-type violating-object))
+    (swap! invariant-violations assoc (list invariant-type violating-object) violation-infos)))
 
 (defmacro model-invariant
   "This defines a model invariant"
@@ -114,6 +109,13 @@
 
 (defn generate-textualize!
   [])
+
+(defn reset-registers!
+  []
+  (reset! -model-elements-register [])
+  (reset! -model-types-register [])
+  (reset! invariant-violations {})
+  (doall (map #(remove-ns (symbol (str %))) (filter #(re-find #"^model." (str %)) (all-ns)))))
 
 (defn load-model 
   "This function loads a model from a file into namespace model or to the namespace given."

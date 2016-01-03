@@ -94,16 +94,21 @@
 
 (defn inject-behaviour 
   "It injects behaviour to model element type. Inject dest can be :global model element type keyword or model element."
-  [inject-dest behaviour-fn] 
+  ([inject-dest b-name behaviour-fn] 
   (if-not (@injected-behaviour-store inject-dest) (swap! injected-behaviour-store assoc inject-dest []))
   (swap! injected-behaviour-store 
          assoc-in 
          [inject-dest] 
+         ;todo here wrap it into an fn to return b-name if called without parameter. 
+         ;todo b-fn should accept a hashmap instead.
          (cons behaviour-fn (get-in @injected-behaviour-store [inject-dest]))))
+  ([inject-dest behaviour-fn]
+   (inject-behaviour inject-dest nil behaviour-fn)))
 
 (defn injected-behaviours
   "This returns a list of behaviours injected to inject-dest"
   [inject-dest]
+;  (println "ssss" @injected-behaviour-store (get-in @injected-behaviour-store [inject-dest]))
   (get-in @injected-behaviour-store [inject-dest]))
 
 (defmacro -create-model-type
@@ -138,9 +143,9 @@
               ; here instead of adding var the model element is added. In the future it may be necessary to 
               ; provide facility to query source structre: eg. where a certain model element is used.
               (core/register-me! ~element-sym#)
-              ; create model element under model element type namespace
-              (intern (in-ns (symbol (str "model." '~men#))) '~element-sym# ~element-sym#)
-              (apply apply-all [~element-sym# ~'model-state# '~attrs#] (injected-behaviours '~men#))
+              ;(intern (in-ns (symbol (str "model." '~men#))) '~element-sym# ~element-sym#)
+              (apply apply-all [~element-sym# '~element-sym# '~men# ~'model-state# '~attrs#] (injected-behaviours :global))
+              (apply apply-all [~element-sym# ~'model-state# '~attrs#] (injected-behaviours (keyword '~men#)))
               (apply-all [~element-sym# ~'model-state# '~attrs#] ~~@(filter meph-filter-fn clauses#))
               ;; pretty printer for REPL
               (defmethod print-method (type ~element-sym#) [~'this# ~'writer#]
@@ -168,4 +173,13 @@
          (and (fn? me#) (= ((me# :dump-state) :model-type) ~model-type-name))))))
 
 (defn runs-on [& args] (cons :runs-on args))
+
+(inject-behaviour :global "unique name handler"
+  (fn[me element-sym model-type model-state attrs]
+    ; create model element under model element type namespace
+    (let [model-ns (create-ns (symbol (str "model." model-type)))]
+      (if (ns-resolve model-ns element-sym)
+        (core/set-violations! :unique-model-element-name me (str "Element name " element-sym " is not unique"))
+        (intern model-ns element-sym me)))))
+
 

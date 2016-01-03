@@ -24,27 +24,46 @@
   [ result-count & conditions]
   `(is (= ~result-count (count (search ~@conditions)))))
 
-(deftest type-search
-  (search-tester 2 :elemtyp1)
-  (search-tester 1 :elemtyp2))
+(defmacro iv-search-tester
+  [ result-count & conditions]
+  `(is (= ~result-count (count (iv-search ~@conditions)))))
 
-(deftest name-search
-  (search-tester 2 #".*1")
-  (search-tester 1 "foo2"))
+(deftest model-element-search
+  (testing "type-search"
+    (search-tester 2 :elemtyp1)
+    (search-tester 1 :elemtyp2))
 
-(deftest key-value-search
-  (search-tester 2 {:foo 1})
-  (search-tester 1 {:foo 1 :bar 2}))
+  (testing "name-search"
+    (search-tester 2 #".*1")
+    (search-tester 1 "foo2"))
 
-(deftest mixed-searches
-  (search-tester 1 :elemtyp1 "foo1")
-  (search-tester 0 :elemtyp1 "foo3-not-defined")
-  (search-tester 1 :elemtyp2 bar1)
-  (search-tester 2 :elemtyp1 #"foo?")
-  (search-tester 1 :elemtyp1 #".*2"))
+  (testing "key-value-search"
+    (search-tester 2 {:foo 1})
+    (search-tester 1 {:foo 1 :bar 2}))
 
-(deftest set-option
-  (search-tester 3 #{:elemtyp1 :elemtyp2})
-  (search-tester 0 #{:elemtyp1} #{:elemtyp2})
-  (search-tester 3 #{:elemtyp1 :elemtyp2} #{:elemtyp1 :elemtyp2})
-  (search-tester 3 #{:elemtyp1 {:bar 2}}))
+  (testing "mixed-searches"
+    (search-tester 1 :elemtyp1 "foo1")
+    (search-tester 0 :elemtyp1 "foo3-not-defined")
+    (search-tester 1 :elemtyp2 bar1)
+    (search-tester 2 :elemtyp1 #"foo?")
+    (search-tester 1 :elemtyp1 #".*2"))
+
+  (testing "set-option"
+    (search-tester 3 #{:elemtyp1 :elemtyp2})
+    (search-tester 0 #{:elemtyp1} #{:elemtyp2})
+    (search-tester 3 #{:elemtyp1 :elemtyp2} #{:elemtyp1 :elemtyp2})
+    (search-tester 3 #{:elemtyp1 {:bar 2}})))
+
+(deftest invariant-violation-search
+  (c/set-violations! :violation1 bar1 "something")
+  (c/set-violations! :violation2 foo2 "something")
+  (c/set-violations! :violation1 foo1 "something")
+
+  (testing "by keyword"
+    (iv-search-tester 2 :violation1))
+
+  (testing "by model element"
+    (iv-search-tester 1 foo1))
+
+  (testing "by regexp"
+    (iv-search-tester 2 #"1")))
