@@ -11,3 +11,5 @@
 + create model type namespace under model and create alias there for each
   model element
 + behaviour injection
++ global model element variable which contains every global state: *model*,
+  set-model!, with-model

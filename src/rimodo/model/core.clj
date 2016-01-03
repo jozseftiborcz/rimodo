@@ -20,6 +20,52 @@
   [param]
   (config param))
 
+;; current model
+(def ^:dynamic *model* nil)
+
+(def ^:dynamic ^:private models (atom {}))
+
+(defn set-model
+  "This sets the current model to model"
+  [m]
+  (def ^:dynamic *model* m))
+
+(defn find-model
+  "This finds a model by name or model"
+  [model-or-name]
+  (cond
+   (string? model-or-name) (@models model-or-name)
+   (and (map? model-or-name) 
+        (model-or-name :model-name)) (@models (model-or-name :model-name))))
+
+(defn create-model
+  "This creates a new model or returns the existing one"
+  [model-name]
+  (if-let [model (find-model model-name)]
+    model
+    (let [new-model {:model-name model-name}]
+      (swap! models assoc model-name new-model)
+      new-model)))
+
+(defn remove-model
+  "This removes the given model"
+  [model-or-name]
+  (if-let [model (find-model model-or-name)]
+    (do (swap! models dissoc (model :model-name)) 
+      model)))
+
+(defn all-models
+  "Returns a lazy-seq of available models"
+  []
+  (lazy-seq @models))
+
+(defmacro with-model
+  "This executes the body with the given model"
+  [model-or-name & body]
+  `(if-let [model# (find-model ~model-or-name)]
+     (binding [*model* model#]
+       ~@body)))
+
 ;; global list of model elements
 (def -model-elements-register (atom []))
 (def -model-types-register (atom []))
@@ -30,15 +76,17 @@
   (swap! -model-elements-register conj me)
   me)
 
-(defn register-mt
+(defn register-mt!
   [mt]
   (swap! -model-types-register conj mt))
 
 (defn model-elements
+  "This returns a lazy-seq of model elements"
   []
   (lazy-seq @-model-elements-register))
 
 (defn model-types
+  "This returns a lazy-seq of model types."
   []
   (lazy-seq @-model-types-register))
 

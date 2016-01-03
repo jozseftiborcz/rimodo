@@ -52,12 +52,6 @@
     (doseq [cmd commands]
       (if cmd (apply cmd params)))))
 
-(defmacro call-seq-with-params-x
-  [params & clauses]
-  (if (and clauses (first clauses))
-    `(cons (apply ~(first clauses) ~params) (call-seq-with-params ~params ~@(next clauses))) 
-    (list)))
-
 (defn meta-attr-filter-fn
   "It returns a filter fn which returns a filtered seq where meta contains filter-value as key."
   [filter-value]
@@ -166,7 +160,7 @@
         (ns-unmap *ns* model-type-sym)))
     `(do 
        (-create-model-type ~model-type-sym ~@clauses)
-       (core/register-mt #'~model-type-sym)
+       (core/register-mt! #'~model-type-sym)
        (defn ~(symbol (str model-type-sym "?"))
          "It decides if a model element is of this type. Returns false if not a model element."
          [me#]
