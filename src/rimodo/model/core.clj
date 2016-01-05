@@ -1,6 +1,7 @@
 (ns rimodo.model.core
   (:require [clojure.pprint :as pp]
-            [clojure.string :as s]))
+            [clojure.string :as s]
+            [clojure.java.io :as io]))
 
 ;; global state of configuration settings
 (def ^:dynamic *config* (atom {:model-print "simple"}))
@@ -72,7 +73,6 @@
 
 (defn register-me!
   [me]
-;  (println "register-me" me)
   (swap! -model-elements-register conj me)
   me)
 
@@ -165,21 +165,39 @@
   (reset! invariant-violations {})
   (doall (map #(remove-ns (symbol (str %))) (filter #(re-find #"^model." (str %)) (all-ns)))))
 
+(defn file? [f] (.exists (io/file f)))
+(defn directory? [f] (.isDirectory (io/file f)))
+(defn model-file? [f] (and (.exists (io/file f)) (re-find #".clj$" f)))
+
 (defn load-model 
-  "This function loads a model from a file into namespace model or to the namespace given."
-  ([filename]
-   (load-model "model" filename))
-  ([model filename]
-   (let [nsname (ns-name *ns*)
-         model (symbol model)]
+  "This function loads a model from a file or a directory into namespace 'model' or to the namespace given. 
+  It returns the loaded model plus a list of loaded model files."
+  ([file-or-dir]
+   (load-model 'model file-or-dir))
+  ([model-name file-or-dir]
+   (let [model (symbol model-name)
+         nsname (ns-name *ns*)] ; this doesn't work with binding...
+;     (reset-registers!) TODO this should be refactored
      (remove-ns model)
-     (reset-registers!)
      (in-ns model)
      (clojure.core/require '[rimodo.model.server :refer :all] 
                            '[rimodo.model.core :refer :all]
                            '[clojure.core :refer :all] 
-                           '[rimodo.model.model-search :refer :all] :reload)
-     (load-file filename)
-     (generate-textualize!)
-     (in-ns nsname))))
+                           '[rimodo.model.model-search :refer :all])
+     (let [[model loaded-files] (load-model model-name file-or-dir :recursive)]
+       (generate-textualize!)
+       (in-ns nsname)
+       [model loaded-files])))
+  ([model-name file-or-dir recursive]
+   (cond 
+     (directory? file-or-dir) 
+     (let [loaded-files (do
+                          (doall 
+                            (filter #(let [[m files] (load-model model-name (.getPath (io/file file-or-dir %)) recursive)]
+                                       (not(nil? m))) (seq (.list (io/file file-or-dir))))))]
+       [model-name loaded-files])
+     (model-file? file-or-dir) 
+     (do (load-file file-or-dir)
+       [model-name (list file-or-dir)])
+     :else [nil nil])))
 

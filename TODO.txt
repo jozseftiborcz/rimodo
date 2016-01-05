@@ -13,3 +13,7 @@
 + behaviour injection
 + global model element variable which contains every global state: *model*,
   set-model!, with-model
+- topic structure
+- rights management based on topic and me met structure
+- model time and modeling time
+- model element context

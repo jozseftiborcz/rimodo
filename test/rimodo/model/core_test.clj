@@ -30,6 +30,7 @@
 (deftest model-type?-testing
   (is (not (model-type? "not-model-type")) "this is not")
   (is (not (model-type? foo2)) "this is not")
+         (model-types)
   (is (model-type? :elemtyp2) "works with keyword")
   (is (model-type? #'elemtyp2) "works with var")
   (is (model-type? "elemtyp1") "works with string too"))
@@ -54,4 +55,14 @@
     (with-model (create-model "model2")
       (is (= (*model* :model-name) "model2")))
     (is (= (*model* :model-name) "model3"))))
+
+(deftest load-model-testing
+  (testing "load of a file"
+    (let [[model loaded-files] (load-model "test/testmodel/app-server.clj")]
+      (is (= 1 (count loaded-files)))
+      (is (= "test/testmodel/app-server.clj" (first loaded-files)))))
+  (testing "load of a directory structure"
+    (let [[model loaded-files] (load-model "test/testmodel")]
+      (is (= 3 (count loaded-files)))
+      (is (some #(re-find #"app-server2" %) loaded-files)))))
 
